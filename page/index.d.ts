@@ -6,7 +6,8 @@ export type Answer = { ok: boolean; message: string; result?: unknown };
  * (`<scheme>://<project>…`) with the caller's `state`; a tell hands it a
  * body only the page and its app's commands understand. Leave out `reveal`
  * and every reveal is refused. A handler that throws refuses with the
- * error's message. */
+ * error's message. A message can arrive while the page is still answering
+ * an earlier one, so handlers can overlap. */
 export type Handlers = {
   reveal?(moniker: string, state: unknown): Answer | Promise<Answer>;
   tell(body: unknown): Answer | Promise<Answer>;

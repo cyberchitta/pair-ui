@@ -64,6 +64,10 @@ host?.keep(view);                       // JSON under 64 KB; null forgets it
   can answer; a framing host holds reveals until then.
 - **Answer within 10 s.** A handler may return a promise. One that throws
   refuses with its error's message.
+- **Handlers can overlap.** The next message arrives while an earlier one
+  is still being answered, so a slow reveal does not hold up a tell. Two
+  reveals can be in flight at once: let the later one win; the overtaken
+  one changes nothing and says so.
 - **A message the page cannot do in full is refused and changes nothing.**
   The agent cannot see the page, so a half-applied message reads as done.
 - **A reveal reconstructs a view from a moniker.** What it puts back is the

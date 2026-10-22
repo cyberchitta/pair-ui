@@ -27,9 +27,15 @@ export async function httpHost(token) {
         continue;
       }
       if (response.status === 204) continue;
-      const answered = await answer(handlers, await response.json());
-      if (answered) await call("POST", "answer", answered).catch(() => {});
+      const message = await response.json().catch(() => null);
+      if (message) reply(handlers, message);
     }
+  }
+
+  // Not awaited by `poll`, so a slow handler does not hold up the next message.
+  async function reply(handlers, message) {
+    const answered = await answer(handlers, message);
+    if (answered) await call("POST", "answer", answered).catch(() => {});
   }
 
   return {
