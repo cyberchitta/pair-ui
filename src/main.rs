@@ -15,7 +15,7 @@ use pair_ui::{
 use serde_json::Value;
 
 const USAGE: &str = "\
-usage: pair-ui serve <project> <build-dir> [--connect <origin>]... [--wasm]
+usage: pair-ui serve <project> <build-dir> [--connect <origin>]... [--wasm] [--images]
        pair-ui tell <project> '<json>'      (or - to read the JSON from stdin)
        pair-ui reveal <moniker> [--state '<json>']";
 
@@ -26,6 +26,7 @@ enum Command {
         build: PathBuf,
         connect: Vec<Origin>,
         wasm: bool,
+        remote_images: bool,
     },
     Tell {
         project: String,
@@ -76,10 +77,12 @@ fn parse(args: &[String]) -> Result<Command, String> {
 }
 
 fn serve_args(project: &str, build: &str, flags: &[String]) -> Result<Command, String> {
-    let (mut connect, mut wasm, mut flags) = (Vec::new(), false, flags.iter());
+    let (mut connect, mut flags) = (Vec::new(), flags.iter());
+    let (mut wasm, mut remote_images) = (false, false);
     while let Some(flag) = flags.next() {
         match flag.as_str() {
             "--wasm" => wasm = true,
+            "--images" => remote_images = true,
             "--connect" => {
                 let origin = flags.next().ok_or("--connect needs an origin")?;
                 connect.push(origin.parse().map_err(|e| format!("{e}"))?);
@@ -92,6 +95,7 @@ fn serve_args(project: &str, build: &str, flags: &[String]) -> Result<Command, S
         build: build.into(),
         connect,
         wasm,
+        remote_images,
     })
 }
 
@@ -127,7 +131,15 @@ async fn run(command: Command) -> Result<(), String> {
             build,
             connect,
             wasm,
-        } => serve(project, build, Policy { connect, wasm }).await,
+            remote_images,
+        } => {
+            let policy = Policy {
+                connect,
+                wasm,
+                remote_images,
+            };
+            serve(project, build, policy).await
+        }
         Command::Tell { project, body } => {
             let body = match body {
                 Body::Given(body) => body,
@@ -202,14 +214,30 @@ mod tests {
         let command = parse(&args(
             "serve demo dist --wasm --connect http://localhost:3381",
         ));
-        let Ok(Command::Serve { connect, wasm, .. }) = command else {
+        let Ok(Command::Serve {
+            connect,
+            wasm,
+            remote_images,
+            ..
+        }) = command
+        else {
             panic!("{command:?}");
         };
         assert!(wasm);
+        assert!(!remote_images);
         assert_eq!(
             connect,
             vec!["http://localhost:3381".parse().expect("origin")]
         );
+    }
+
+    #[test]
+    fn serve_takes_images() {
+        let command = parse(&args("serve demo dist --images"));
+        let Ok(Command::Serve { remote_images, .. }) = command else {
+            panic!("{command:?}");
+        };
+        assert!(remote_images);
     }
 
     #[test]

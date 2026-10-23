@@ -103,6 +103,9 @@ pub struct Policy {
     pub connect: Vec<Origin>,
     /// Whether the page may compile WebAssembly (`'wasm-unsafe-eval'`).
     pub wasm: bool,
+    /// Whether the page may load images from any `https:` origin. Each image
+    /// is a request off the machine that tells its host the person's address.
+    pub remote_images: bool,
 }
 
 impl Policy {
@@ -111,9 +114,14 @@ impl Policy {
     ///
     /// ```
     /// use pair_ui::Policy;
-    /// let policy = Policy { connect: vec!["http://localhost:3381".parse().unwrap()], wasm: true };
+    /// let policy = Policy {
+    ///     connect: vec!["http://localhost:3381".parse().unwrap()],
+    ///     wasm: true,
+    ///     remote_images: true,
+    /// };
     /// assert!(policy.csp().contains("connect-src 'self' http://localhost:3381;"));
     /// assert!(policy.csp().contains("'wasm-unsafe-eval'"));
+    /// assert!(policy.csp().ends_with("img-src 'self' data: blob: https:"));
     /// assert!(Policy::default().csp().ends_with("connect-src 'self'"));
     /// ```
     pub fn csp(&self) -> String {
@@ -123,9 +131,14 @@ impl Policy {
         } else {
             ""
         };
+        let images = if self.remote_images {
+            "; img-src 'self' data: blob: https:"
+        } else {
+            ""
+        };
         format!(
             "default-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; \
-             connect-src 'self'{connect}{wasm}"
+             connect-src 'self'{connect}{wasm}{images}"
         )
     }
 }

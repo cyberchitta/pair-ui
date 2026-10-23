@@ -36,7 +36,7 @@ host?.start({
 
 ```
 cargo install --git https://github.com/cyberchitta/pair-ui
-pair-ui serve <project> <build-dir> [--connect <origin>]... [--wasm]
+pair-ui serve <project> <build-dir> [--connect <origin>]... [--wasm] [--images]
 pair-ui tell <project> '<json>'        # or - to read the JSON from stdin
 pair-ui reveal <moniker> [--state '<json>']   # to the moniker's project
 ```

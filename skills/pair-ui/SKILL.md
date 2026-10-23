@@ -109,7 +109,11 @@ let answer = pair_ui::client::reveal(&socket, &moniker, Some(&state)).await?;
 let host = pair_ui::Host::bind(pair_ui::Config {
     project,
     build: pair_ui::Build::Folder(dist), // or Build::Embedded(&[("index.html", include_bytes!(…)), …])
-    policy: pair_ui::Policy { connect: vec!["http://localhost:3381".parse()?], wasm: true },
+    policy: pair_ui::Policy {
+        connect: vec!["http://localhost:3381".parse()?],
+        wasm: true,
+        remote_images: false,
+    },
     socket: pair_ui::socket_path(&project),
 }).await?;
 println!("{}", host.page_url());  // carries the token: show it to the person, not to logs
@@ -124,10 +128,14 @@ The page is served under a Content-Security-Policy, so build for it:
   those only for fetches and sockets: images and scripts load only from the
   build. Adding a remote origin sends data off the machine; ask first.
 - **`wasm: true`** lets the page compile WebAssembly.
+- **`remote_images: true`** (`--images`) lets `<img>` load from any `https:`
+  origin, nothing else. Each image tells its host the person's address and
+  when they looked, so make it the person's choice, off by default, and
+  draw something in its place when an image fails or is refused.
 
 An app not written in Rust runs the host with the `pair-ui` binary instead
 (`cargo install --git https://github.com/cyberchitta/pair-ui`): `pair-ui
-serve <project> <build-dir> [--connect <origin>]... [--wasm]`, and its
+serve <project> <build-dir> [--connect <origin>]... [--wasm] [--images]`, and its
 commands call `pair-ui tell <project> '<json>'` (`-` reads stdin) and
 `pair-ui reveal <moniker> [--state '<json>']`, which reaches the host of
 the moniker's project. Both print the

@@ -33,6 +33,7 @@ fn config(root: &Path) -> Config {
         policy: Policy {
             connect,
             wasm: true,
+            remote_images: false,
         },
         socket: root.join("run").join("demo.sock"),
     }
