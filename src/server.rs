@@ -32,7 +32,7 @@ use serde_json::{Value, json};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::{TcpListener, UnixListener};
 
-use crate::message::{Answer, MAX_ANSWER, MAX_KEEP, MAX_TELL};
+use crate::message::{Answer, BadTell, MAX_ANSWER, MAX_KEEP, MAX_TELL, TellRequest};
 use crate::moniker::Moniker;
 use crate::policy::Policy;
 use crate::relay::{NoAnswer, Relay};
@@ -288,28 +288,21 @@ async fn command_route(state: Arc<State>, req: Request<Incoming>) -> Result<Repl
     })
 }
 
-/// A tell: the project on the first line, the JSON after.
 async fn tell(state: &State, bytes: &[u8]) -> Reply {
-    let Some(split) = bytes.iter().position(|&b| b == b'\n') else {
-        return error(
-            StatusCode::BAD_REQUEST,
-            "the body is the project on one line, then the JSON",
-        );
-    };
-    let (project, json) = (&bytes[..split], &bytes[split + 1..]);
-    if project != state.project.as_bytes() {
-        let named = String::from_utf8_lossy(project);
-        return error(
+    match TellRequest::parse(bytes) {
+        Ok(tell) if tell.project() == state.project => {
+            answered(state.relay.tell(tell.into_body()).await)
+        }
+        Ok(tell) => error(
             StatusCode::NOT_FOUND,
-            &format!("this host is for {}, not {named:?}", state.project),
-        );
-    }
-    match serde_json::from_slice::<Value>(json) {
-        Ok(body) => answered(state.relay.tell(body).await),
-        Err(e) => error(
-            StatusCode::BAD_REQUEST,
-            &format!("the tell is not JSON: {e}"),
+            &format!(
+                "this host is for {}, not {:?}",
+                state.project,
+                tell.project()
+            ),
         ),
+        Err(bad @ BadTell::TooLarge(_)) => error(StatusCode::PAYLOAD_TOO_LARGE, &bad.to_string()),
+        Err(bad) => error(StatusCode::BAD_REQUEST, &bad.to_string()),
     }
 }
 

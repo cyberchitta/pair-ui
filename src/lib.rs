@@ -12,7 +12,7 @@
 //! open ([`socket_path`]):
 //!
 //! - `POST /tell`: the project on the first line of the body, the JSON after
-//!   it ([`client::tell`]).
+//!   it ([`client::tell`] writes one, [`TellRequest`] reads one).
 //! - `POST /reveal`: a [`Moniker`], `<scheme>://<project>…`, then an
 //!   optional `state: <json>` line ([`client::reveal`]).
 //!
@@ -45,7 +45,8 @@
 //!
 //! The `host` feature, on by default, holds the host, `client` and the
 //! web stack they need. Without it the crate is the messages, the limits,
-//! [`Moniker`] and [`Policy`], for a host that frames the page.
+//! [`TellRequest`], [`Moniker`] and [`Policy`], for a host that frames the
+//! page.
 
 #[cfg(feature = "host")]
 pub mod client;
@@ -57,7 +58,9 @@ mod relay;
 #[cfg(feature = "host")]
 mod server;
 
-pub use message::{ANSWER_WAIT, Answer, MAX_ANSWER, MAX_KEEP, MAX_TELL, Message};
+pub use message::{
+    ANSWER_WAIT, Answer, BadTell, MAX_ANSWER, MAX_KEEP, MAX_TELL, Message, TellRequest,
+};
 pub use moniker::{BadMoniker, Moniker};
 pub use policy::{BadOrigin, Origin, Policy};
 #[cfg(feature = "host")]

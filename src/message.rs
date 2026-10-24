@@ -18,6 +18,68 @@ pub const MAX_ANSWER: usize = MAX_TELL;
 /// How long a tell or reveal waits for the page's answer.
 pub const ANSWER_WAIT: Duration = Duration::from_secs(10);
 
+/// A tell as it reaches a host's socket (`POST /tell`): the project on the
+/// first line, the JSON body after it. Only parsing makes one.
+///
+/// ```
+/// use pair_ui::{BadTell, TellRequest};
+/// let tell = TellRequest::parse(b"sorted-studs\n{\"show\":1}").unwrap();
+/// assert_eq!(tell.project(), "sorted-studs");
+/// assert!(matches!(TellRequest::parse(b"{}"), Err(BadTell::NoProjectLine)));
+/// ```
+#[derive(Debug, Clone, PartialEq)]
+pub struct TellRequest {
+    project: String,
+    body: Value,
+}
+
+/// Why a request is not a tell.
+#[derive(Debug, thiserror::Error)]
+pub enum BadTell {
+    #[error("the body is the project on one line, then the JSON")]
+    NoProjectLine,
+    #[error("the project line is not UTF-8")]
+    ProjectNotUtf8,
+    #[error("the tell is {0} bytes; a host takes at most {MAX_TELL}")]
+    TooLarge(usize),
+    #[error("the tell is not JSON: {0}")]
+    NotJson(serde_json::Error),
+}
+
+impl TellRequest {
+    /// Reads a tell request. Splits on the first newline, so the JSON may
+    /// span lines; the JSON may be at most [`MAX_TELL`] bytes.
+    pub fn parse(bytes: &[u8]) -> Result<Self, BadTell> {
+        let split = bytes
+            .iter()
+            .position(|&b| b == b'\n')
+            .ok_or(BadTell::NoProjectLine)?;
+        let (project, json) = (&bytes[..split], &bytes[split + 1..]);
+        let project = std::str::from_utf8(project).map_err(|_| BadTell::ProjectNotUtf8)?;
+        if json.len() > MAX_TELL {
+            return Err(BadTell::TooLarge(json.len()));
+        }
+        let body = serde_json::from_slice(json).map_err(BadTell::NotJson)?;
+        Ok(TellRequest {
+            project: project.to_string(),
+            body,
+        })
+    }
+
+    /// The project the tell is for, as its first line named it.
+    pub fn project(&self) -> &str {
+        &self.project
+    }
+
+    pub fn body(&self) -> &Value {
+        &self.body
+    }
+
+    pub fn into_body(self) -> Value {
+        self.body
+    }
+}
+
 /// What the page is handed, the same over HTTP and postMessage:
 /// `{"pair":1,"tell":{"id","body"}}` or
 /// `{"pair":1,"reveal":{"id","moniker","state"}}`.
